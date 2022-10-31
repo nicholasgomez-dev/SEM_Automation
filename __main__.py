@@ -1,21 +1,22 @@
 from gspread_operations.gspread_operations import *
-
-def handleProgramErrors(errors):
-    print(errors)
+from aws_operations.aws_operations import *
 
 def main():
-    # Intialize Arrays
-    update_budgets = []
-    new_budgets = []
-    budget_errors = []
-
     # Read worksheet data
     readSheetDataResponse = readSheetData()
     # If response is error, raise as critical error.
     if (readSheetDataResponse['status'] == 'error'):
         raise Exception(readSheetDataResponse['data'])
-    # Add to update_budgets array.
-    update_budgets.extend(readSheetDataResponse['data'])
+
+    # Read DynamoDB data
+    readDynamoDBResponse = readDynamoDB(readSheetDataResponse['data'])
+    # If response is error, raise as critical error.
+    if (readDynamoDBResponse['status'] == 'error'):
+        raise Exception(readDynamoDBResponse['data'])
+    
+    # Handle budgets
+    print(readDynamoDBResponse['data'])
+
 
 
 if __name__ == "__main__":

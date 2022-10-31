@@ -5,7 +5,7 @@ def readSheetData():
         #Initialize client
         googlesheets_client = gspread.service_account(filename='./gspread_operations/gspread.json')
         # Select Google Sheet File
-        sem_automation_sheet = googlesheets_client.open("SEM Automation Sheet")
+        sem_automation_sheet = googlesheets_client.open("SEM Automation Test Sheet")
         # Get all data from Send worksheet.
         worksheet_data = sem_automation_sheet.worksheet("Send").get_all_records()
         # Return worksheet data
@@ -18,8 +18,6 @@ def readSheetData():
     except Exception:
         error_data = {
             'status': 'error',
-            'data': 'Error reading worksheet data.'
+            'data': 'Error reading Google Sheet data.'
         }
         return error_data
-
-readSheetData()
