@@ -4,19 +4,58 @@ from aws_operations.aws_operations import *
 
 
 # Handle budget updates
-def handleUpdates(update_list):
+def handleBudgetUpdates(update_list):
     # Update Google Ads budgets
     updateBudgetsResponse = updateBudgets(update_list)
     if (updateBudgetsResponse['status'] == 'error'):
-        raise Exception(updateBudgetsResponse['data'])
-    print(updateBudgetsResponse['data'])
-
-    # Handle Successful Updates
-    # Handle Errors that occured during updates
+        return updateBudgetsResponse
     
-    return updateBudgetsResponse
+    # Log successfull transactions
+    logTransactionsResponse = logTransactions(updateBudgetsResponse['data']['successful'])
+    if (logTransactionsResponse['status'] == 'error'):
+        return logTransactionsResponse
 
-# Run the main function
+    # Return any errors
+    return {
+        'status': 'success',
+        'data': {
+            'errors': updateBudgetsResponse['data']['failed'] + logTransactionsResponse['data']['errors']
+        }
+    }
+
+
+# Handle new budgets
+def handleNewBudgets(new_budgets):
+    # Create new budgets
+    createNewBudgetsResponse = createNewBudgets(new_budgets)
+    if (createNewBudgetsResponse['status'] == 'error'):
+        return createNewBudgetsResponse
+    
+    # Assign budgets to campaigns
+    assignBudgetsResponse = assignBudgets(createNewBudgetsResponse['data']['successful'])
+    if (assignBudgetsResponse['status'] == 'error'):
+        return assignBudgetsResponse
+    
+    # Log successful transactions
+    logTransactionsResponse = logTransactions(assignBudgetsResponse['data']['successful'])
+    if (logTransactionsResponse['status'] == 'error'):
+        return logTransactionsResponse
+    
+    # Return any errors
+    return {
+        'status': 'success',
+        'data': {
+            'errors': createNewBudgetsResponse['data']['failed'] + assignBudgetsResponse['data']['failed'] + logTransactionsResponse['data']['errors']
+        }
+    }
+
+
+# Handle budget errors
+def handleBudgetErrors(budget_errors):
+    print(budget_errors)
+    
+
+# Main function
 def main():
     # Read worksheet data
     readSheetDataResponse = readSheetData()
@@ -28,7 +67,18 @@ def main():
     if (readDynamoDBResponse['status'] == 'error'):
         raise Exception(readDynamoDBResponse['data'])
 
-    handleUpdatesResponse = handleUpdates(readDynamoDBResponse['data']['update'])
+    # Handle budget updates
+    handleBudgetUpdatesResponse = handleBudgetUpdates(readDynamoDBResponse['data']['update'])
+    if (handleBudgetUpdatesResponse['status'] == 'error'):
+        raise Exception(handleBudgetUpdatesResponse['data'])
+
+    # Handle new budgets
+    handleNewBudgetsResponse = handleNewBudgets(readDynamoDBResponse['data']['new'])
+    if (handleNewBudgetsResponse['status'] == 'error'):
+        raise Exception(handleNewBudgetsResponse['data'])
+
+    # Handle new budgets
+    handleBudgetErrors(readDynamoDBResponse['data']['errors'] + handleBudgetUpdatesResponse['data']['errors'] + handleNewBudgetsResponse['data']['errors'])
 
 
 # Run main function
