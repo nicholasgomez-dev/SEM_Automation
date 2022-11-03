@@ -68,17 +68,19 @@ def main():
         raise Exception(readDynamoDBResponse['data'])
 
     # Handle budget updates
-    handleBudgetUpdatesResponse = handleBudgetUpdates(readDynamoDBResponse['data']['update'])
-    if (handleBudgetUpdatesResponse['status'] == 'error'):
-        raise Exception(handleBudgetUpdatesResponse['data'])
+    if (len(readDynamoDBResponse['data']['update']) > 0):
+        handleBudgetUpdatesResponse = handleBudgetUpdates(readDynamoDBResponse['data']['update'])
+        if (handleBudgetUpdatesResponse['status'] == 'error'):
+            raise Exception(handleBudgetUpdatesResponse['data'])
 
     # Handle new budgets
-    handleNewBudgetsResponse = handleNewBudgets(readDynamoDBResponse['data']['new'])
-    if (handleNewBudgetsResponse['status'] == 'error'):
-        raise Exception(handleNewBudgetsResponse['data'])
-
-    # Handle new budgets
-    handleBudgetErrors(readDynamoDBResponse['data']['errors'] + handleBudgetUpdatesResponse['data']['errors'] + handleNewBudgetsResponse['data']['errors'])
+    if (len(readDynamoDBResponse['data']['new']) > 0):
+        handleNewBudgetsResponse = handleNewBudgets(readDynamoDBResponse['data']['new'])
+        if (handleNewBudgetsResponse['status'] == 'error'):
+            raise Exception(handleNewBudgetsResponse['data'])
+        print(handleNewBudgetsResponse)
+    # # Handle new budgets
+    # handleBudgetErrors(readDynamoDBResponse['data']['errors'] + handleBudgetUpdatesResponse['data']['errors'] + handleNewBudgetsResponse['data']['errors'])
 
 
 # Run main function

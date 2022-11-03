@@ -26,9 +26,10 @@ def updateBudgets(budget_list):
             campaign_budget.amount_micros = budget_to_micros
             # Create field mask
             field_mask = protobuf_helpers.field_mask(None, campaign_budget._pb)
-            # Copy field mask to operation
-            client.copy_from(campaign_budget_operation.update_mask, field_mask)
             try:
+                # Copy field mask to operation
+                client.copy_from(campaign_budget_operation.update_mask, field_mask)
+                # Process update
                 campaign_budget_service.mutate_campaign_budgets(customer_id=budget['Client ID'], operations=[campaign_budget_operation])
                 return_data['data']['successful'].append(budget)
             except Exception:
@@ -46,9 +47,35 @@ def updateBudgets(budget_list):
 
 def createNewBudgets(budget_list):
     try:
+        # Initialize client object, Service, & Operation
         client = GoogleAdsClient.load_from_storage('./gads_operations/gads.yaml')
-        # Create budget
-        # Return successful and failed lists
+        campaign_budget_service = client.get_service("CampaignBudgetService")
+        campaign_budget_operation = client.get_type("CampaignBudgetOperation")
+        # Initialize return object
+        return_data = {
+            'status': 'success',
+            'data': {
+                'successful': [],
+                'failed': []
+            }
+        }
+        # Loop through new budget list & create
+        for new_budget in budget_list:
+            # Convert budget amount to micros
+            budget_to_micros = int(float(new_budget['Campaign Budget'].replace('$', ''))) * 1000000
+            # Create campaign budget
+            campaign_budget = campaign_budget_operation.create
+            campaign_budget.name = "Test_Automated_Budget_" + str(new_budget['Client ID']) + '_' + str(new_budget['Campaign ID']) + '_6'
+            campaign_budget.delivery_method = (client.enums.BudgetDeliveryMethodEnum.STANDARD)
+            campaign_budget.amount_micros = budget_to_micros
+            campaign_budget.explicitly_shared = True
+            try:
+                campaign_budget_response = campaign_budget_service.mutate_campaign_budgets(customer_id=str(new_budget['Client ID']), operations=[campaign_budget_operation])
+                new_budget['Budget Resource Name'] = campaign_budget_response.results[0].resource_name
+                return_data['data']['successful'].append(new_budget)
+            except Exception as e:
+                return_data['data']['failed'].append(new_budget)
+        return return_data
     
     except Exception as e:
         print(e)
@@ -59,4 +86,38 @@ def createNewBudgets(budget_list):
         return return_data
 
 def assignBudgets(budget_list):
-    print(budget_list)
+    try:
+        # Initialize client object, Service, & Operation
+        client = GoogleAdsClient.load_from_storage('./gads_operations/gads.yaml')
+        campaign_service = client.get_service("CampaignService")
+        campaign_operation = client.get_type("CampaignOperation")
+        # Initialize return object
+        return_data = {
+            'status': 'success',
+            'data': {
+                'successful': [],
+                'failed': []
+            }
+        }
+        # Loop through new budget list & assign to campaigns
+        for budget in budget_list:
+            # Assign budget to campaign
+            campaign = campaign_operation.update
+            campaign.resource_name = campaign_service.campaign_path(str(budget['Client ID']), str(budget['Campaign ID']))
+            campaign.campaign_budget = budget['Budget Resource Name']
+            try:
+                # Copy field mask to operation
+                client.copy_from(campaign_operation.update_mask, protobuf_helpers.field_mask(None, campaign._pb))
+                # Process update
+                campaign_service.mutate_campaigns(customer_id=str(budget['Client ID']), operations=[campaign_operation])
+                return_data['data']['successful'].append(budget)
+            except Exception as e:
+                return_data['data']['failed'].append(budget)
+        return return_data
+    except Exception as e:
+        print(e)
+        return_data = {
+            'status': 'error',
+            'data': 'Error assigning budgets.'
+        }
+        return return_data

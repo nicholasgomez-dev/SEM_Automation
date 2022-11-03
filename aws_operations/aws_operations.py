@@ -27,8 +27,9 @@ def readDynamoDB(update_budgets):
             )
 
             # If client has no transactions
-            if len(response['Items']) == 0:
-                return return_data['data']['new'].append(budget)
+            if len(response['Items']) < 1:
+                return_data['data']['new'].append(budget)
+                continue
 
             # Set all properties to string values & add resource name
             budget['Resource Name'] = response['Items'][0]['ResourceName']['S']
