@@ -1,7 +1,7 @@
 import datetime
 import boto3
 
-def readDynamoDB(update_budgets):
+def getTransacations(update_budgets):
     try:
         # Init DynamoDB client
         dynamodb_client = boto3.client('dynamodb', region_name="us-west-1")
@@ -44,25 +44,23 @@ def readDynamoDB(update_budgets):
                 error_obj = {
                     'Client ID': budget['Client ID'],
                     'Campaign ID': budget['Campaign ID'],
-                    'Proposed Budget': float(budget['Campaign Budget']),
-                    'Last Budget': float(response['Items'][0]['Budget']['N']),
-                    'Error Type': 'Budget Increase',
-                    'Error Message': 'Budget increase is 20% higher than the last budget.'
+                    'Error Type': 'Budget_Increase',
+                    'Error Message': 'Budget increase is 20% higher than the last budget.',
+                    'Error Object': repr(budget)
                 }
-                return return_data['data']['errors'].append(error_obj)
+                return_data['data']['errors'].append(error_obj)
+                continue
 
             # If new budget is lower than 10% of the last budget
             if float(response['Items'][0]['Budget']['N']) < min_tolerance:
                 error_obj = {
                     'Client ID': budget['Client ID'],
                     'Campaign ID': budget['Campaign ID'],
-                    'Proposed Budget': float(budget['Campaign Budget']),
-                    'Last Budget': float(response['Items'][0]['Budget']['N']),
-                    'Error Type': 'Budget Decrease',
-                    'Error Message': 'Budget decrease is lower than 10% of the last budget.'
+                    'Error Type': 'Budget_Decrease',
+                    'Error Message': 'Budget decrease is less than 10% of the last budget.',
+                    'Error Object': repr(budget)
                 }
                 return_data['data']['errors'].append(error_obj)
-
             # Add budget to update array
             return_data['data']['update'].append(budget)
 
@@ -104,7 +102,15 @@ def logTransactions(updated_list):
                     }
                 )
             except Exception as e:
-                return_data['data']['errors'].append(success)
+                err_obj = {
+                    'Client ID': success['Client ID'],
+                    'Campaign ID': success['Campaign ID'],
+                    'Error Type': 'Budget_Transaction_Error',
+                    'Error Message': 'Budget transaction failed to log to table.',
+                    'Error Object': repr(success)
+                }
+                return_data['data']['errors'].append(err_obj)
+                continue
         return return_data
     
     except Exception as e:
@@ -114,3 +120,56 @@ def logTransactions(updated_list):
             'data': 'Error logging transactions to DynamoDB.'
         }
         return return_data
+
+def logErrors(error_list):
+    # Initialize return object
+    return_data = {
+        'status': 'success',
+        'data': {
+            'errors': []
+        }
+    }
+    try:
+        # Init DynamoDB client
+        dynamodb_client = boto3.client('dynamodb', region_name="us-west-1")
+        # Log each transaction to DynamoDB Table
+        for error in error_list:
+            # Add transaction to DynamoDB
+            try:
+                dynamodb_client.put_item(
+                    TableName="SEM_Automation_Errors",
+                    Item={
+                        'ClientID': {'S': str(error['Client ID'])},
+                        'CampaignID': {'S': str(error['Campaign ID'])},
+                        'ErrorID': {'S': str(datetime.datetime.now()).replace(' ', '')},
+                        'ErrorType': {'S': error['Error Type']},
+                        'ErrorMessage': {'S': error['Error Message']},
+                        'ErrorObject': {'S': error['Error Object']}
+                    }
+                )
+            except Exception as e:
+                err_obj = {
+                    'ClientID': {'S': str(error['Client ID'])},
+                    'CampaignID': {'S': str(error['Campaign ID'])},
+                    'ErrorID': {'S': str(datetime.datetime.now()).replace(' ', '')},
+                    'ErrorType': {'S': error['Error Type']},
+                    'ErrorMessage': {'S': error['Error Message']},
+                    'ErrorObject': {'S': error['Error Object']}
+                }
+                return_data['data']['errors'].append(err_obj)
+                continue
+        return return_data
+    
+    except Exception as e:
+        print(e)
+        return_data = {
+            'status': 'error',
+            'data': 'Error logging errors to DynamoDB.'
+        }
+        return return_data
+
+def getErrorContacts():
+    print('Getting error contacts...')
+
+def sendErrorEmails(contact_list, error_list):
+    print('Sending error emails...')

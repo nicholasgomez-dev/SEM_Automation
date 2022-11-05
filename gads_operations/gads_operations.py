@@ -33,7 +33,16 @@ def updateBudgets(budget_list):
                 campaign_budget_service.mutate_campaign_budgets(customer_id=budget['Client ID'], operations=[campaign_budget_operation])
                 return_data['data']['successful'].append(budget)
             except Exception:
-                return_data['data']['failed'].append(budget)
+                err_obj = {
+                    'Client ID': budget['Client ID'],
+                    'Campaign ID': budget['Campaign ID'],
+                    'Resource Name': budget['Resource Name'],
+                    'Budget': budget['Campaign Budget'],
+                    'Error Type': 'Budget_Update_Error',
+                    'Error Message': 'Budget update failed.'
+                }
+                return_data['data']['failed'].append(err_obj)
+                continue
         return return_data
 
     except Exception as e:
@@ -43,7 +52,6 @@ def updateBudgets(budget_list):
             'data': 'Error updating budgets.'
         }
         return return_data
-
 
 def createNewBudgets(budget_list):
     try:
@@ -74,7 +82,15 @@ def createNewBudgets(budget_list):
                 new_budget['Budget Resource Name'] = campaign_budget_response.results[0].resource_name
                 return_data['data']['successful'].append(new_budget)
             except Exception as e:
-                return_data['data']['failed'].append(new_budget)
+                err_obj = {
+                    'Client ID': str(new_budget['Client ID']),
+                    'Campaign ID': str(new_budget['Campaign ID']),
+                    'Budget': new_budget['Campaign Budget'],
+                    'Error Type': 'Budget_Create_Error',
+                    'Error Message': 'Budget creation failed.'
+                }
+                return_data['data']['failed'].append(err_obj)
+                continue
         return return_data
     
     except Exception as e:
@@ -112,7 +128,15 @@ def assignBudgets(budget_list):
                 campaign_service.mutate_campaigns(customer_id=str(budget['Client ID']), operations=[campaign_operation])
                 return_data['data']['successful'].append(budget)
             except Exception as e:
-                return_data['data']['failed'].append(budget)
+                err_obj = {
+                    'Client ID': str(budget['Client ID']),
+                    'Campaign ID': str(budget['Campaign ID']),
+                    'Budget': budget['Campaign Budget'],
+                    'Error Type': 'Budget_Assignment_Error',
+                    'Error Message': 'Budget assignment failed.'
+                }
+                return_data['data']['failed'].append(err_obj)
+                continue
         return return_data
     except Exception as e:
         print(e)

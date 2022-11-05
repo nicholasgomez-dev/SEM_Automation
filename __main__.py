@@ -52,7 +52,23 @@ def handleNewBudgets(new_budgets):
 
 # Handle budget errors
 def handleBudgetErrors(budget_errors):
-    print(budget_errors)
+    # Log errors to DynamoDB
+    logErrorsResponse = logErrors(budget_errors)
+    if (logErrorsResponse['status'] == 'error'):
+        return logErrorsResponse
+    if (len(logErrorsResponse['data']['errors']) > 0):
+        logErrorsResponse['data'] = 'The following error objects could not be logged to the errors table: '.join([repr(error) for error in logErrorsResponse['data']['errors']])
+        return logErrorsResponse
+    
+    # Get error contacts
+    getErrorContactsResponse = getErrorContacts()
+    if (getErrorContactsResponse['status'] == 'error'):
+        return getErrorContactsResponse
+
+    # Send error emails to contacts
+    sendErrorEmailsResponse = sendErrorEmails(getErrorContactsResponse['data'], budget_errors)
+    if (sendErrorEmailsResponse['status'] == 'error'):
+        return sendErrorEmailsResponse
     
 
 # Main function
@@ -63,25 +79,28 @@ def main():
         raise Exception(readSheetDataResponse['data'])
 
     # Read DynamoDB & sort data
-    readDynamoDBResponse = readDynamoDB(readSheetDataResponse['data'])
-    if (readDynamoDBResponse['status'] == 'error'):
-        raise Exception(readDynamoDBResponse['data'])
+    getTransacationsResponse = getTransacations(readSheetDataResponse['data'])
+    if (getTransacationsResponse['status'] == 'error'):
+        raise Exception(getTransacationsResponse['data'])
 
     # Handle budget updates
-    if (len(readDynamoDBResponse['data']['update']) > 0):
-        handleBudgetUpdatesResponse = handleBudgetUpdates(readDynamoDBResponse['data']['update'])
+    if (len(getTransacationsResponse['data']['update']) > 0):
+        handleBudgetUpdatesResponse = handleBudgetUpdates(getTransacationsResponse['data']['update'])
         if (handleBudgetUpdatesResponse['status'] == 'error'):
             raise Exception(handleBudgetUpdatesResponse['data'])
 
     # Handle new budgets
-    if (len(readDynamoDBResponse['data']['new']) > 0):
-        handleNewBudgetsResponse = handleNewBudgets(readDynamoDBResponse['data']['new'])
+    if (len(getTransacationsResponse['data']['new']) > 0):
+        handleNewBudgetsResponse = handleNewBudgets(getTransacationsResponse['data']['new'])
         if (handleNewBudgetsResponse['status'] == 'error'):
             raise Exception(handleNewBudgetsResponse['data'])
-        print(handleNewBudgetsResponse)
-    # # Handle new budgets
-    # handleBudgetErrors(readDynamoDBResponse['data']['errors'] + handleBudgetUpdatesResponse['data']['errors'] + handleNewBudgetsResponse['data']['errors'])
 
+    # Handle budget errors
+    handleBudgetErrorsResponse = handleBudgetErrors(getTransacationsResponse['data']['errors'] + handleBudgetUpdatesResponse['data']['errors'] + handleNewBudgetsResponse['data']['errors'])
+    if (handleBudgetErrorsResponse['status'] == 'error'):
+        raise Exception(handleBudgetErrorsResponse['data'])
+    
+    print('Budgets updated successfully!')
 
 # Run main function
 if __name__ == "__main__":
