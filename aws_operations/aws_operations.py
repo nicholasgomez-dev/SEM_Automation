@@ -69,7 +69,7 @@ def getTransacations(update_budgets):
     except Exception as e:
         return_data = {
             'status': 'error',
-            'data': 'Error reading DynamoDB data.'
+            'data': 'Error reading DynamoDB budget transaction data.'
         }
 
         print(e)
@@ -169,7 +169,68 @@ def logErrors(error_list):
         return return_data
 
 def getErrorContacts():
-    print('Getting error contacts...')
+    try:
+        # Initialize DynamoDB client
+        dynamodb_client = boto3.client('dynamodb', region_name="us-west-1")
+        # Initialize return object
+        return_data = {
+            'status': 'success',
+            'data': {
+                'contacts': []
+            }
+        }
+        # Get all contacts from DynamoDB
+        response = dynamodb_client.scan(TableName="SEM_Automation_Contacts")
+        return_data['data']['contacts'].extend(response['Items'])
+        # Scan for more contacts
+        while 'LastEvaluatedKey' in response:
+            response = dynamodb_client.scan(TableName="SEM_Automation_Contacts", ExclusiveStartKey=response['LastEvaluatedKey'])
+            return_data['data']['contacts'].extend(response['Items'])
 
-def sendErrorEmails(contact_list, error_list):
-    print('Sending error emails...')
+        return return_data
+
+    except Exception as e:
+        return_data = {
+            'status': 'error',
+            'data': 'Error reading DynamoDB error contact data.'
+        }
+
+        print(e)
+
+        return return_data
+
+def sendErrorEmails(contact_data, error_list):
+    try:
+        ses_client = boto3.client("ses", region_name="us-west-1")
+        # Initialize return object
+        return_data = {'status': 'success'}
+        # Construct contact list with list comprehension
+        contact_list = [contact['Email']['S'] for contact in contact_data]
+        # Construct error strings list with list comprehension
+        error_strings = [('For Client ID: ' + error['Client ID'] + ', Campaign ID: ' + error['Campaign ID'] + ', Error Type: ' + error['Error Type'] + ', Error Message: ' + error['Error Message']) for error in error_list]
+        # Constuct email body
+        ses_client.send_email(
+            Destination={
+                "ToAddresses": contact_list,
+            },
+            Message={
+                "Body": {
+                    "Text": {
+                        "Charset": "UTF-8",
+                        "Data": error_strings,
+                    }
+                },
+                "Subject": {
+                    "Charset": "UTF-8",
+                    "Data": "SEM Automation Error Notifications",
+                },
+            },
+            Source="lrouter@mxssolutions.com"
+        )
+        return return_data
+    except Exception as e:
+        print(e)
+        return {
+            'status': 'error',
+            'data': 'Error sending erorr emails.'
+        }

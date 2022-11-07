@@ -66,7 +66,7 @@ def handleBudgetErrors(budget_errors):
         return getErrorContactsResponse
 
     # Send error emails to contacts
-    sendErrorEmailsResponse = sendErrorEmails(getErrorContactsResponse['data'], budget_errors)
+    sendErrorEmailsResponse = sendErrorEmails(getErrorContactsResponse['data']['contacts'], budget_errors)
     if (sendErrorEmailsResponse['status'] == 'error'):
         return sendErrorEmailsResponse
     
@@ -100,7 +100,8 @@ def main():
     if (handleBudgetErrorsResponse['status'] == 'error'):
         raise Exception(handleBudgetErrorsResponse['data'])
     
-    print('Budgets updated successfully!')
+    if (handleBudgetErrorsResponse['status'] == 'success'):
+        return print('SEM Budgets Updated Successfully')
 
 # Run main function
 if __name__ == "__main__":
