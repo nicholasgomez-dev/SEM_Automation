@@ -69,6 +69,8 @@ def handleBudgetErrors(budget_errors):
     sendErrorEmailsResponse = sendErrorEmails(getErrorContactsResponse['data']['contacts'], budget_errors)
     if (sendErrorEmailsResponse['status'] == 'error'):
         return sendErrorEmailsResponse
+
+    return sendErrorEmailsResponse
     
 
 # Main function
@@ -95,17 +97,17 @@ def main():
         if (handleNewBudgetsResponse['status'] == 'error'):
             raise Exception(handleNewBudgetsResponse['data'])
 
-    # Handle budget errors
+    # # Handle budget errors
     handleBudgetErrorsResponse = handleBudgetErrors(getTransacationsResponse['data']['errors'] + handleBudgetUpdatesResponse['data']['errors'] + handleNewBudgetsResponse['data']['errors'])
     if (handleBudgetErrorsResponse['status'] == 'error'):
         raise Exception(handleBudgetErrorsResponse['data'])
     
     if (handleBudgetErrorsResponse['status'] == 'success'):
-        return print('SEM Budgets Updated Successfully')
+        print('SEM Automation ran successfully with ' + str(len(getTransacationsResponse['data']['errors'] + handleBudgetUpdatesResponse['data']['errors'] + handleNewBudgetsResponse['data']['errors'])) + ' budget error(s).')
 
 # Run main function
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print('Error: ' + str(e))
+        print(e)

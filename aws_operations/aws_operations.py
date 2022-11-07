@@ -1,5 +1,6 @@
 import datetime
 import boto3
+from botocore.exceptions import ClientError
 
 def getTransacations(update_budgets):
     try:
@@ -147,6 +148,8 @@ def logErrors(error_list):
                         'ErrorObject': {'S': error['Error Object']}
                     }
                 )
+            except ClientError as e:
+                print(e.response['Error']['Message'])
             except Exception as e:
                 err_obj = {
                     'ClientID': {'S': str(error['Client ID'])},
@@ -161,7 +164,6 @@ def logErrors(error_list):
         return return_data
     
     except Exception as e:
-        print(e)
         return_data = {
             'status': 'error',
             'data': 'Error logging errors to DynamoDB.'
@@ -203,7 +205,9 @@ def sendErrorEmails(contact_data, error_list):
     try:
         ses_client = boto3.client("ses", region_name="us-west-1")
         # Initialize return object
-        return_data = {'status': 'success'}
+        return_data = {
+            'status': 'success'
+        }
         # Construct contact list with list comprehension
         contact_list = [contact['Email']['S'] for contact in contact_data]
         # Construct error strings list with list comprehension
@@ -211,18 +215,18 @@ def sendErrorEmails(contact_data, error_list):
         # Constuct email body
         ses_client.send_email(
             Destination={
-                "ToAddresses": contact_list,
+                "ToAddresses": contact_list
             },
             Message={
                 "Body": {
                     "Text": {
                         "Charset": "UTF-8",
-                        "Data": error_strings,
+                        "Data": ' '.join(error_strings),
                     }
                 },
                 "Subject": {
                     "Charset": "UTF-8",
-                    "Data": "SEM Automation Error Notifications",
+                    "Data": 'SEM Automation Error Report',
                 },
             },
             Source="lrouter@mxssolutions.com"

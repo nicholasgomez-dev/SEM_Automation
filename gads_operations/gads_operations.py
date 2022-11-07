@@ -1,3 +1,4 @@
+import sys
 from google.api_core import protobuf_helpers
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
@@ -39,7 +40,8 @@ def updateBudgets(budget_list):
                     'Resource Name': budget['Resource Name'],
                     'Budget': budget['Campaign Budget'],
                     'Error Type': 'Budget_Update_Error',
-                    'Error Message': 'Budget update failed.'
+                    'Error Message': 'Budget update failed.',
+                    'Error Object': repr(budget)
                 }
                 return_data['data']['failed'].append(err_obj)
                 continue
@@ -73,7 +75,7 @@ def createNewBudgets(budget_list):
             budget_to_micros = int(float(new_budget['Campaign Budget'].replace('$', ''))) * 1000000
             # Create campaign budget
             campaign_budget = campaign_budget_operation.create
-            campaign_budget.name = "Test_Automated_Budget_" + str(new_budget['Client ID']) + '_' + str(new_budget['Campaign ID']) + '_6'
+            campaign_budget.name = "Test_Automated_Budget_" + str(new_budget['Client ID']) + '_' + str(new_budget['Campaign ID'])
             campaign_budget.delivery_method = (client.enums.BudgetDeliveryMethodEnum.STANDARD)
             campaign_budget.amount_micros = budget_to_micros
             campaign_budget.explicitly_shared = True
@@ -81,13 +83,26 @@ def createNewBudgets(budget_list):
                 campaign_budget_response = campaign_budget_service.mutate_campaign_budgets(customer_id=str(new_budget['Client ID']), operations=[campaign_budget_operation])
                 new_budget['Budget Resource Name'] = campaign_budget_response.results[0].resource_name
                 return_data['data']['successful'].append(new_budget)
+            except GoogleAdsException as ex:
+                for error in ex.failure.errors:
+                    err_obj = {
+                        'Client ID': str(new_budget['Client ID']),
+                        'Campaign ID': str(new_budget['Campaign ID']),
+                        'Budget': new_budget['Campaign Budget'],
+                        'Error Type': 'Budget_Create_Error',
+                        'Error Message': 'Budget creation failed: ' + error.message,
+                        'Error Object': repr(new_budget)
+                    }
+                    return_data['data']['failed'].append(err_obj)
+                    continue
             except Exception as e:
                 err_obj = {
                     'Client ID': str(new_budget['Client ID']),
                     'Campaign ID': str(new_budget['Campaign ID']),
                     'Budget': new_budget['Campaign Budget'],
                     'Error Type': 'Budget_Create_Error',
-                    'Error Message': 'Budget creation failed.'
+                    'Error Message': 'Budget creation failed.',
+                    'Error Object': repr(new_budget)
                 }
                 return_data['data']['failed'].append(err_obj)
                 continue
@@ -133,7 +148,8 @@ def assignBudgets(budget_list):
                     'Campaign ID': str(budget['Campaign ID']),
                     'Budget': budget['Campaign Budget'],
                     'Error Type': 'Budget_Assignment_Error',
-                    'Error Message': 'Budget assignment failed.'
+                    'Error Message': 'Budget assignment failed.',
+                    'Error Object': repr(budget)
                 }
                 return_data['data']['failed'].append(err_obj)
                 continue
