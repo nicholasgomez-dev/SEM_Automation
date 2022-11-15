@@ -1,4 +1,4 @@
-import sys
+import uuid
 from google.api_core import protobuf_helpers
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
@@ -75,13 +75,13 @@ def createNewBudgets(budget_list):
             budget_to_micros = int(float(new_budget['Campaign Budget'].replace('$', ''))) * 1000000
             # Create campaign budget
             campaign_budget = campaign_budget_operation.create
-            campaign_budget.name = "Test_Automated_Budget_" + str(new_budget['Client ID']) + '_' + str(new_budget['Campaign ID'])
+            campaign_budget.name = "Automated_Budget_" + str(new_budget['Client ID']) + '_' + str(new_budget['Campaign ID']) + '_' + str(uuid.uuid4())
             campaign_budget.delivery_method = (client.enums.BudgetDeliveryMethodEnum.STANDARD)
             campaign_budget.amount_micros = budget_to_micros
             campaign_budget.explicitly_shared = True
             try:
                 campaign_budget_response = campaign_budget_service.mutate_campaign_budgets(customer_id=str(new_budget['Client ID']), operations=[campaign_budget_operation])
-                new_budget['Budget Resource Name'] = campaign_budget_response.results[0].resource_name
+                new_budget['Resource Name'] = campaign_budget_response.results[0].resource_name
                 return_data['data']['successful'].append(new_budget)
             except GoogleAdsException as ex:
                 for error in ex.failure.errors:
@@ -135,7 +135,7 @@ def assignBudgets(budget_list):
             # Assign budget to campaign
             campaign = campaign_operation.update
             campaign.resource_name = campaign_service.campaign_path(str(budget['Client ID']), str(budget['Campaign ID']))
-            campaign.campaign_budget = budget['Budget Resource Name']
+            campaign.campaign_budget = budget['Resource Name']
             try:
                 # Copy field mask to operation
                 client.copy_from(campaign_operation.update_mask, protobuf_helpers.field_mask(None, campaign._pb))

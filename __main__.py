@@ -90,14 +90,18 @@ def main():
         handleBudgetUpdatesResponse = handleBudgetUpdates(getTransacationsResponse['data']['update'])
         if (handleBudgetUpdatesResponse['status'] == 'error'):
             raise Exception(handleBudgetUpdatesResponse['data'])
+    else:
+        handleBudgetUpdatesResponse = {'status': 'success', 'data': {'errors': []}}
 
     # Handle new budgets
     if (len(getTransacationsResponse['data']['new']) > 0):
         handleNewBudgetsResponse = handleNewBudgets(getTransacationsResponse['data']['new'])
         if (handleNewBudgetsResponse['status'] == 'error'):
             raise Exception(handleNewBudgetsResponse['data'])
+    else:
+        handleNewBudgetsResponse = {'status': 'success','data': {'errors': []}}
 
-    # # Handle budget errors
+    # Handle budget errors
     handleBudgetErrorsResponse = handleBudgetErrors(getTransacationsResponse['data']['errors'] + handleBudgetUpdatesResponse['data']['errors'] + handleNewBudgetsResponse['data']['errors'])
     if (handleBudgetErrorsResponse['status'] == 'error'):
         raise Exception(handleBudgetErrorsResponse['data'])

@@ -24,6 +24,7 @@ def getTransacations(update_budgets):
                 ExpressionAttributeValues={
                     ':clientID': {'S': str(budget['Client ID'])}
                 },
+                ScanIndexForward=False,
                 Limit=1
             )
 
@@ -41,7 +42,7 @@ def getTransacations(update_budgets):
             min_tolerance =  (float(response['Items'][0]['Budget']['N']) * int(10) / int(100))
             
             # If new budget is 20% higher or more than last budget
-            if float(response['Items'][0]['Budget']['N']) > max_tolerance:
+            if (float(response['Items'][0]['Budget']['N']) > max_tolerance):
                 error_obj = {
                     'Client ID': budget['Client ID'],
                     'Campaign ID': budget['Campaign ID'],
@@ -53,7 +54,7 @@ def getTransacations(update_budgets):
                 continue
 
             # If new budget is lower than 10% of the last budget
-            if float(response['Items'][0]['Budget']['N']) < min_tolerance:
+            if (float(response['Items'][0]['Budget']['N']) < min_tolerance):
                 error_obj = {
                     'Client ID': budget['Client ID'],
                     'Campaign ID': budget['Campaign ID'],
@@ -98,11 +99,12 @@ def logTransactions(updated_list):
                         'ClientID': {'S': str(success['Client ID'])},
                         'CampaignID': {'S': str(success['Campaign ID'])},
                         'TransactionID': {'S': str(datetime.datetime.now()).replace(' ', '')},
-                        'ResourceName': {'S': str(success['Resource Name'])},
+                        'ResourceName': {'S': str(success['Resource Name'] or success['Budget Resource Name'])},
                         'Budget': {'N': str(success['Campaign Budget'].replace('$', ''))}
                     }
                 )
             except Exception as e:
+                print(e)
                 err_obj = {
                     'Client ID': success['Client ID'],
                     'Campaign ID': success['Campaign ID'],
@@ -202,39 +204,44 @@ def getErrorContacts():
         return return_data
 
 def sendErrorEmails(contact_data, error_list):
-    try:
-        ses_client = boto3.client("ses", region_name="us-west-1")
-        # Initialize return object
-        return_data = {
-            'status': 'success'
-        }
-        # Construct contact list with list comprehension
-        contact_list = [contact['Email']['S'] for contact in contact_data]
-        # Construct error strings list with list comprehension
-        error_strings = [('For Client ID: ' + error['Client ID'] + ', Campaign ID: ' + error['Campaign ID'] + ', Error Type: ' + error['Error Type'] + ', Error Message: ' + error['Error Message']) for error in error_list]
-        # Constuct email body
-        ses_client.send_email(
-            Destination={
-                "ToAddresses": contact_list
-            },
-            Message={
-                "Body": {
-                    "Text": {
+    if (len(error_list) > 0):
+        try:
+            ses_client = boto3.client("ses", region_name="us-west-1")
+            # Initialize return object
+            return_data = {
+                'status': 'success'
+            }
+            # Construct contact list with list comprehension
+            contact_list = [contact['Email']['S'] for contact in contact_data]
+            # Construct error strings list with list comprehension
+            error_strings = [('For Client ID: ' + str(error['Client ID']) + ', Campaign ID: ' + str(error['Campaign ID']) + ', Error Type: ' + error['Error Type'] + ', Error Message: ' + error['Error Message']) for error in error_list]
+            # Constuct email body
+            ses_client.send_email(
+                Destination={
+                    "ToAddresses": contact_list
+                },
+                Message={
+                    "Body": {
+                        "Text": {
+                            "Charset": "UTF-8",
+                            "Data": ' '.join(error_strings),
+                        }
+                    },
+                    "Subject": {
                         "Charset": "UTF-8",
-                        "Data": ' '.join(error_strings),
-                    }
+                        "Data": 'SEM Automation Error Report',
+                    },
                 },
-                "Subject": {
-                    "Charset": "UTF-8",
-                    "Data": 'SEM Automation Error Report',
-                },
-            },
-            Source="lrouter@mxssolutions.com"
-        )
-        return return_data
-    except Exception as e:
-        print(e)
+                Source="lrouter@mxssolutions.com"
+            )
+            return return_data
+        except Exception as e:
+            print(e)
+            return {
+                'status': 'error',
+                'data': 'Error sending erorr emails.'
+            }
+    else:
         return {
-            'status': 'error',
-            'data': 'Error sending erorr emails.'
+            'status': 'success'
         }

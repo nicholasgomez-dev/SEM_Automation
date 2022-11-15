@@ -3,6 +3,7 @@
 
 gads_operations/gads.yaml
 gspread_operations/gspread.json
+.DS_Store
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
