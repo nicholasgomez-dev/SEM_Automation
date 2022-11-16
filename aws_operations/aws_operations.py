@@ -37,12 +37,14 @@ def getTransacations(update_budgets):
             budget['Resource Name'] = response['Items'][0]['ResourceName']['S']
             budget['Client ID'] = response['Items'][0]['ClientID']['S']
             budget['Campaign ID'] = response['Items'][0]['CampaignID']['S']
-            # Get tolerance levels
-            max_tolerance =  (float(response['Items'][0]['Budget']['N']) * int(20) / int(100)) + float(response['Items'][0]['Budget']['N'])
-            min_tolerance =  (float(response['Items'][0]['Budget']['N']) * int(10) / int(100))
-            
+            # Get comparison values
+            max_tolerance =  int(float(response['Items'][0]['Budget']['N']) * int(20) / int(100)) + float(response['Items'][0]['Budget']['N'])
+            min_tolerance =  int(float(response['Items'][0]['Budget']['N']) * int(10) / int(100))
+            budget_value = int(float(budget['Campaign Budget'].replace('$', '')))
+
             # If new budget is 20% higher or more than last budget
-            if (float(response['Items'][0]['Budget']['N']) > max_tolerance):
+            if (budget_value > max_tolerance):
+                print('Budget is 20% higher than last budget.')
                 error_obj = {
                     'Client ID': budget['Client ID'],
                     'Campaign ID': budget['Campaign ID'],
@@ -54,7 +56,8 @@ def getTransacations(update_budgets):
                 continue
 
             # If new budget is lower than 10% of the last budget
-            if (float(response['Items'][0]['Budget']['N']) < min_tolerance):
+            if (budget_value < min_tolerance):
+                print('Budget is 10% lower than last budget.')
                 error_obj = {
                     'Client ID': budget['Client ID'],
                     'Campaign ID': budget['Campaign ID'],
@@ -63,6 +66,8 @@ def getTransacations(update_budgets):
                     'Error Object': repr(budget)
                 }
                 return_data['data']['errors'].append(error_obj)
+            
+            print('Budget is within tolerance.')
             # Add budget to update array
             return_data['data']['update'].append(budget)
 
@@ -208,13 +213,69 @@ def sendErrorEmails(contact_data, error_list):
         try:
             ses_client = boto3.client("ses", region_name="us-west-1")
             # Initialize return object
-            return_data = {
-                'status': 'success'
-            }
-            # Construct contact list with list comprehension
+            return_data = { 'status': 'success' }
+            # Set values
             contact_list = [contact['Email']['S'] for contact in contact_data]
-            # Construct error strings list with list comprehension
-            error_strings = [('For Client ID: ' + str(error['Client ID']) + ', Campaign ID: ' + str(error['Campaign ID']) + ', Error Type: ' + error['Error Type'] + ', Error Message: ' + error['Error Message']) for error in error_list]
+            error_row_markup = ''
+            # Build error row markup for each error
+            for error in error_list:
+                error_row = '<tr><td>' + error['Client ID'] + '</td><td>' + error['Campaign ID'] + '</td><td>' + error['Error Type'] + '</td><td>' + error['Error Message'] + '</td></tr>'
+                error_row_markup += error_row
+            # Contruct email body
+            html_body = """
+                <html>
+                    <head>
+                        <style>
+                            body {
+                                color: black;
+                            }
+                            table {
+                            font-family: arial, sans-serif;
+                            border-collapse: collapse;
+                            width: 100%;
+                            }
+
+                            th {
+                            border: 1px solid #dddddd;
+                            text-align: left;
+                            padding: 8px;
+                            background-color: #e7e7e7;
+                            color: black;
+                            }
+
+
+                            td {
+                            border: 1px solid #dddddd;
+                            text-align: left;
+                            padding: 8px;
+                            color: black;
+                            }
+
+                            tr:nth-child(even) {
+                            background-color: #dddddd;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <h1 style="color: black;">SEM Automation Error Report</h1>
+                        <p  style="color: black;">The following errors were encountered during the most recent budget update:</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Client ID</th>
+                                    <th>Campaign ID</th>
+                                    <th>Error Type</th>
+                                    <th>Error Message</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                """ + error_row_markup + """
+                            </tbody>
+                        </table>
+                    </body>
+                </html>
+            """
+
             # Constuct email body
             ses_client.send_email(
                 Destination={
@@ -222,9 +283,9 @@ def sendErrorEmails(contact_data, error_list):
                 },
                 Message={
                     "Body": {
-                        "Text": {
+                        "Html": {
                             "Charset": "UTF-8",
-                            "Data": ' '.join(error_strings),
+                            "Data": html_body,
                         }
                     },
                     "Subject": {
